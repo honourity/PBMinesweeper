@@ -1,0 +1,19 @@
+{
+    "appKeys": {},
+    "capabilities": [
+        ""
+    ],
+    "companyName": "thomas.la.brown@gmail.com",
+    "longName": "Minesweeper",
+    "projectType": "native",
+    "resources": {
+        "media": []
+    },
+    "shortName": "Minesweeper",
+    "uuid": "5bc1e7f5-ae28-4d61-8ef4-1beca6361e8b",
+    "versionCode": 1,
+    "versionLabel": "1.0",
+    "watchapp": {
+        "watchface": false
+    }
+}
