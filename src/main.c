@@ -10,9 +10,9 @@
 #define HEADING_OFFSET 8
 
 const char* VISUAL_MINE  = "*";
-const char* VISUAL_FLAG  = "!";
-const char* VISUAL_CLEAR = "";
-const char* VISUAL_BLANK = "#";
+const char* VISUAL_FLAG  = "+";
+const char* VISUAL_CLEAR = "-";
+const char* VISUAL_BLANK = "";
 
 uint8_t MINE_MASK    = 0b00000001;
 uint8_t FLAG_MASK    = 0b00000010;
@@ -123,6 +123,9 @@ void initBoard(uint8_t* loadedCells, char** loadedThreatCells) {
          text_layer_set_text_color(boardDisplay[i], GColorBlack);
          text_layer_set_background_color(boardDisplay[i], GColorWhite);
       }
+      
+      //set blank for all the uncleared cells
+      text_layer_set_text(boardDisplay[i], VISUAL_BLANK);
    }
    
    //GAAMMEEEE BEGIIIINNNNN!
@@ -136,11 +139,13 @@ void processFailureCondition() {
       for (uint8_t i = 0; i < CELLS_COUNT; i++) {
          if ((cells[i] & MINE_MASK) == MINE_MASK) {
             text_layer_set_text(boardDisplay[i], VISUAL_MINE);
-            text_layer_set_background_color(boardDisplay[i], GColorBlack);
-            text_layer_set_text_color(boardDisplay[i], GColorWhite);
+            if (i != selectedCell) text_layer_set_background_color(boardDisplay[i], GColorWhite);
+            if (i != selectedCell) text_layer_set_text_color(boardDisplay[i], GColorBlack);
+            text_layer_set_font(boardDisplay[i], fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
          } else {
             text_layer_set_text(boardDisplay[i], VISUAL_BLANK);
-            text_layer_set_background_color(boardDisplay[i], GColorBlack);
+            text_layer_set_text_color(boardDisplay[i], GColorWhite);
+            text_layer_set_background_color(boardDisplay[i], GColorWhite);
          }
       }
    } else {
@@ -233,6 +238,7 @@ void selectedRedrawBoardDisplay(uint8_t cell) {
          threatCells[cell] = malloc(sizeof(char)*2);
          snprintf(threatCells[cell], sizeof(char)*2, "%d", localTerrorists);
          text_layer_set_text(boardDisplay[cell], threatCells[cell]);
+         text_layer_set_font(boardDisplay[cell], fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD));
       } else {
          text_layer_set_text(boardDisplay[cell], VISUAL_CLEAR);
          for (uint8_t i = 0; i < neighbourCellsCount; i++) {
@@ -250,8 +256,10 @@ void selectedRedrawBoardDisplay(uint8_t cell) {
    } else {
       if ((cells[cell] & FLAG_MASK) == FLAG_MASK) {
          text_layer_set_text(boardDisplay[cell], VISUAL_FLAG);
+         text_layer_set_font(boardDisplay[cell], fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD));
       } else {
-         text_layer_set_text(boardDisplay[cell], VISUAL_CLEAR);
+         text_layer_set_text(boardDisplay[cell], VISUAL_BLANK);
+         text_layer_set_font(boardDisplay[cell], fonts_get_system_font(FONT_KEY_GOTHIC_14));
       }
    }
 }
