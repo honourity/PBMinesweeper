@@ -9,32 +9,61 @@
 #define MINES_COUNT 10
 #define HEADING_OFFSET 8
 
-uint8_t MINE_MASK = 0b00000001;
+const char* VISUAL_MINE  = "*";
+const char* VISUAL_FLAG  = "!";
+const char* VISUAL_CLEAR = "";
+const char* VISUAL_BLANK = "#";
+
+uint8_t MINE_MASK    = 0b00000001;
+uint8_t FLAG_MASK    = 0b00000010;
 uint8_t CLEARED_MASK = 0b00000100;
-//uint8_t SPARE_MASK = 0b00001000;
-uint8_t FLAG_MASK = 0b00000010;
-uint8_t HINT_MASK = 0b11110000;
 
 bool gameRunning = true;
 
 uint8_t* cells;
+char** threatCells;
 uint8_t selectedCell = START_CELL;
 uint8_t minesCount = MINES_COUNT;
 
 Window *my_window;
 TextLayer** boardDisplay;
 
-void initBoard()
-{
+void initBoard(uint8_t* loadedCells, char** loadedThreatCells) {
    //init empty board
    if (cells != NULL) free(cells);
-   cells = malloc(sizeof(uint8_t) * CELLS_COUNT);
-   for (int i = 0; i < CELLS_COUNT; i++)
-   {
-      cells[i] = 0b00000000;
+   if (loadedCells != NULL) {
+      cells = loadedCells;
+   } else {
+      cells = malloc(sizeof(uint8_t) * CELLS_COUNT);
    }
    
-   //laying mines
+   for (int i = 0; i < CELLS_COUNT; i++)
+   {
+      cells[i] = 0;
+   }
+   
+   if (threatCells != NULL) {
+      for (uint8_t i = 0; i < CELLS_COUNT; i++) {
+         if (threatCells[i] != NULL)
+         {
+            free(threatCells[i]);
+            threatCells[i] = NULL;
+         }
+      }
+   }
+   if (threatCells == NULL)
+   {
+      if (loadedThreatCells != NULL) {
+         threatCells = loadedThreatCells;
+      } else {
+         threatCells = malloc(sizeof(char*) * CELLS_COUNT);
+      }
+   }
+   
+   //reset mines from previous game
+   minesCount = MINES_COUNT;
+   
+   //laying fresh mines
    uint8_t mineLocation;
    srand(time(NULL));
    while (minesCount > 0)
@@ -43,7 +72,7 @@ void initBoard()
       mineLocation = rand() % 64;
       if (cells[mineLocation] == 0)
       {
-         cells[mineLocation] = 0b00000001;
+         cells[mineLocation] = MINE_MASK;
          minesCount--;
       }
    }
@@ -53,8 +82,10 @@ void initBoard()
       for (uint8_t i = 0; i < CELLS_COUNT; i++)
       {
          text_layer_destroy(boardDisplay[i]);
+         boardDisplay[i] = NULL;
       }
       free(boardDisplay);
+      boardDisplay = NULL;
    }
    
    window_set_background_color(my_window, GColorBlack);
@@ -92,79 +123,43 @@ void initBoard()
          text_layer_set_text_color(boardDisplay[i], GColorBlack);
          text_layer_set_background_color(boardDisplay[i], GColorWhite);
       }
-      
-      if ((cells[i] & CLEARED_MASK) == CLEARED_MASK)
-      {
-         text_layer_set_text(boardDisplay[i], "~");
-      }
-      else
-      {
-         if ((cells[i] & FLAG_MASK) == FLAG_MASK)
-         {
-            text_layer_set_text(boardDisplay[i], "!");
-         }
-      }
    }
+   
+   //GAAMMEEEE BEGIIIINNNNN!
+   gameRunning = true;
 }
 
-void processFailureCondition()
-{
-   if (((cells[selectedCell] & MINE_MASK) == MINE_MASK) && ((cells[selectedCell] & CLEARED_MASK) == CLEARED_MASK))
-   {
+void processFailureCondition() {
+   if (((cells[selectedCell] & MINE_MASK) == MINE_MASK) && ((cells[selectedCell] & CLEARED_MASK) == CLEARED_MASK)) {
       //lost the game
       gameRunning = false;
-      
-      for (uint8_t i = 0; i < CELLS_COUNT; i++)
-      {
-         if ((cells[i] & MINE_MASK) == MINE_MASK)
-         {
-            text_layer_set_text(boardDisplay[i], "*");
+      for (uint8_t i = 0; i < CELLS_COUNT; i++) {
+         if ((cells[i] & MINE_MASK) == MINE_MASK) {
+            text_layer_set_text(boardDisplay[i], VISUAL_MINE);
             text_layer_set_background_color(boardDisplay[i], GColorBlack);
             text_layer_set_text_color(boardDisplay[i], GColorWhite);
-         }
-         else
-         {
-            text_layer_set_text(boardDisplay[i], "");
+         } else {
+            text_layer_set_text(boardDisplay[i], VISUAL_BLANK);
             text_layer_set_background_color(boardDisplay[i], GColorBlack);
          }
       }
-   }
-   else
-   {
+   } else {
       uint8_t unclearedCells = CELLS_COUNT;
-      for (uint8_t i = 0; i < CELLS_COUNT; i++)
-      {
-         if ((cells[i] & CLEARED_MASK) == CLEARED_MASK)
-         {
+      for (uint8_t i = 0; i < CELLS_COUNT; i++) {
+         if ((cells[i] & CLEARED_MASK) == CLEARED_MASK) {
             unclearedCells--;
          }
       }
-      if (MINES_COUNT >= unclearedCells)
-      {
+      if (MINES_COUNT >= unclearedCells) {
          //winner!
          gameRunning = false;
-         
-         for (uint8_t i = 0; i < CELLS_COUNT; i++)
-         {
-            if ((cells[i] & MINE_MASK) == MINE_MASK)
-            {
-               text_layer_set_text(boardDisplay[i], "*");
+         for (uint8_t i = 0; i < CELLS_COUNT; i++) {
+            if ((cells[i] & MINE_MASK) == MINE_MASK) {
+               text_layer_set_text(boardDisplay[i], VISUAL_MINE);
                text_layer_set_background_color(boardDisplay[i], GColorWhite);
                text_layer_set_text_color(boardDisplay[i], GColorBlack);
-            }
-            else
-            {
-               uint8_t cellThreatCount = cells[i] >> 4;
-               if (cellThreatCount > 0)
-               {
-                  char charThing[3];
-                  snprintf(charThing, sizeof(3), "%d", cellThreatCount);
-                  text_layer_set_text(boardDisplay[i], charThing);
-               }
-               else
-               {
-                  text_layer_set_text(boardDisplay[i], "");
-               }
+            } else {
+               text_layer_set_text(boardDisplay[i], VISUAL_BLANK);
                if (i != selectedCell) text_layer_set_background_color(boardDisplay[i], GColorWhite);
                text_layer_set_text_color(boardDisplay[i], GColorWhite);
             }
@@ -173,136 +168,102 @@ void processFailureCondition()
    }
 }
 
-//recurse boolean is to indicate that this function is calling itself
-void selectedRedrawBoardDisplay(uint8_t cell)
-{
-   if ((cells[cell] & CLEARED_MASK) == CLEARED_MASK)
-   {
-      text_layer_set_text(boardDisplay[cell], "~");
-      
-      
+void selectedRedrawBoardDisplay(uint8_t cell) {
+   if ((cells[cell] & CLEARED_MASK) == CLEARED_MASK) {
       uint8_t col = cell % ROWS_COUNT;
       uint8_t row = cell / ROWS_COUNT;
-
-      if ((col > 0) && (row > 0))
-      {
-         if ((((cells[cell-1-ROWS_COUNT] & MINE_MASK) == MINE_MASK) && !((cells[cell-1-ROWS_COUNT] & CLEARED_MASK) == CLEARED_MASK)))
-         {
-            //cells[cell-1-ROWS_COUNT] |= CLEARED_MASK;
-            //selectedRedrawBoardDisplay(cell-1-ROWS_COUNT);
-            uint8_t a = ((cells[cell] >> 4) + 1) << 4;
-            uint8_t b = (cells[cell] << 4);
-            uint8_t c = (b >> 4);
-            cells[cell] = a | c;
-         }
+      
+      uint8_t neighbourCellsCount = 8;
+      if ((col == (ROWS_COUNT-1)) || (col == 0)) {
+         neighbourCellsCount -= 3;
       }
-      if ((col < ROWS_COUNT-1) && (row < ROWS_COUNT-1))
-      {
-         if ((((cells[cell+1+ROWS_COUNT] & MINE_MASK) == MINE_MASK) && !((cells[cell+1+ROWS_COUNT] & CLEARED_MASK) == CLEARED_MASK)))
-         {
-            //cells[cell+1+ROWS_COUNT] |= CLEARED_MASK;
-            //selectedRedrawBoardDisplay(cell+1+ROWS_COUNT);
-            uint8_t a = ((cells[cell] >> 4) + 1) << 4;
-            uint8_t b = (cells[cell] << 4);
-            uint8_t c = (b >> 4);
-            cells[cell] = a | c;
-         }
-      }
-      if ((col < ROWS_COUNT-1) && (row > 0))
-      {
-         if ((((cells[cell+1-ROWS_COUNT] & MINE_MASK) == MINE_MASK) && !((cells[cell+1-ROWS_COUNT] & CLEARED_MASK) == CLEARED_MASK)))
-         {
-            //cells[cell+1-ROWS_COUNT] |= CLEARED_MASK;
-            //selectedRedrawBoardDisplay(cell+1-ROWS_COUNT);
-            uint8_t a = ((cells[cell] >> 4) + 1) << 4;
-            uint8_t b = (cells[cell] << 4);
-            uint8_t c = (b >> 4);
-            cells[cell] = a | c;
-         }
-      }
-      if ((col > 0) && (row < ROWS_COUNT-1))
-      {
-         if ((((cells[cell-1+ROWS_COUNT] & MINE_MASK) == MINE_MASK) && !((cells[cell-1+ROWS_COUNT] & CLEARED_MASK) == CLEARED_MASK)))
-         {
-            //cells[cell-1+ROWS_COUNT] |= CLEARED_MASK;
-            //selectedRedrawBoardDisplay(cell-1+ROWS_COUNT);
-            uint8_t a = ((cells[cell] >> 4) + 1) << 4;
-            uint8_t b = (cells[cell] << 4);
-            uint8_t c = (b >> 4);
-            cells[cell] = a | c;
-         }
-      }
-      if (col > 0)
-      {
-         if ((((cells[cell-1] & MINE_MASK) == MINE_MASK) && !((cells[cell-1] & CLEARED_MASK) == CLEARED_MASK)))
-         {
-            //cells[cell-1] |= CLEARED_MASK;
-            //selectedRedrawBoardDisplay(cell-1);
-            uint8_t a = ((cells[cell] >> 4) + 1) << 4;
-            uint8_t b = (cells[cell] << 4);
-            uint8_t c = (b >> 4);
-            cells[cell] = a | c;
-         }
-      }
-      if (col < ROWS_COUNT-1)
-      {
-         if ((((cells[cell+1] & MINE_MASK) == MINE_MASK) && !((cells[cell+1] & CLEARED_MASK) == CLEARED_MASK)))
-         {
-            //cells[cell+1] |= CLEARED_MASK;
-            //selectedRedrawBoardDisplay(cell+1);
-            uint8_t a = ((cells[cell] >> 4) + 1) << 4;
-            uint8_t b = (cells[cell] << 4);
-            uint8_t c = (b >> 4);
-            cells[cell] = a | c;
-         }
-      }
-      if (row > 0)
-      {
-         if ((((cells[cell-ROWS_COUNT] & MINE_MASK) == MINE_MASK) && !((cells[cell-ROWS_COUNT] & CLEARED_MASK) == CLEARED_MASK)))
-         {
-            //cells[cell-ROWS_COUNT] |= CLEARED_MASK;
-            //selectedRedrawBoardDisplay(cell-ROWS_COUNT);
-            uint8_t a = ((cells[cell] >> 4) + 1) << 4;
-            uint8_t b = (cells[cell] << 4);
-            uint8_t c = (b >> 4);
-            cells[cell] = a | c;
-         }
-      }
-      if (row < ROWS_COUNT-1)
-      {
-         if ((((cells[cell+ROWS_COUNT] & MINE_MASK) == MINE_MASK) && !((cells[cell+ROWS_COUNT] & CLEARED_MASK) == CLEARED_MASK)))
-         {
-            //cells[cell+ROWS_COUNT] |= CLEARED_MASK;
-            //selectedRedrawBoardDisplay(cell+ROWS_COUNT);
-            uint8_t a = ((cells[cell] >> 4) + 1) << 4;
-            uint8_t b = (cells[cell] << 4);
-            uint8_t c = (b >> 4);
-            cells[cell] = a | c;
+      if ((row == (ROWS_COUNT-1)) || (row == 0)) {
+         if (neighbourCellsCount < 8) {
+            neighbourCellsCount -= 2;
+         } else {
+            neighbourCellsCount -= 3;
          }
       }
       
-      
-      uint8_t cellThreatCount = cells[cell] >> 4;
-      if (cellThreatCount > 0)
-      {
-         char charThing[3];
-         snprintf(charThing, sizeof(3), "%d", cellThreatCount);
-         text_layer_set_text(boardDisplay[cell], charThing);
+      uint8_t *neighbourCells = malloc(sizeof(uint8_t)*neighbourCellsCount);
+      uint8_t neighbourFillIndex = 0;
+      //loop through neighbouring cells, adding the valid cells to the new array
+      if ((col > 0) && (row > 0)) {
+         neighbourCells[neighbourFillIndex] = cell-ROWS_COUNT-1;
+         neighbourFillIndex++;
       }
-   }
-   else
-   {
-      if ((cells[cell] & FLAG_MASK) == FLAG_MASK)
-      {
-         text_layer_set_text(boardDisplay[cell], "!");
+      if ((col < ROWS_COUNT-1) && (row < ROWS_COUNT-1)) {
+         neighbourCells[neighbourFillIndex] = cell+ROWS_COUNT+1;
+         neighbourFillIndex++;
+      }
+      if ((col < ROWS_COUNT-1) && (row > 0)) {
+         neighbourCells[neighbourFillIndex] = cell-ROWS_COUNT+1;
+         neighbourFillIndex++;
+      }
+      if ((col > 0) && (row < ROWS_COUNT-1)) {
+         neighbourCells[neighbourFillIndex] = cell+ROWS_COUNT-1;
+         neighbourFillIndex++;
+      }
+      if (col > 0) {
+         neighbourCells[neighbourFillIndex] = cell-1;
+         neighbourFillIndex++;
+      }
+      if (col < ROWS_COUNT-1) {
+         neighbourCells[neighbourFillIndex] = cell+1;
+         neighbourFillIndex++;
+      }
+      if (row > 0) {
+         neighbourCells[neighbourFillIndex] = cell-ROWS_COUNT;
+         neighbourFillIndex++;
+      }
+      if (row < ROWS_COUNT-1) {
+         neighbourCells[neighbourFillIndex] = cell+ROWS_COUNT;
+      }
+      
+      uint8_t localTerrorists = 0;
+      for (uint8_t i = 0; i < neighbourCellsCount; i++) {
+         //counting the neighbouring bombs
+         if ((cells[neighbourCells[i]] & MINE_MASK) == MINE_MASK) {
+            localTerrorists++;
+         }
+      }
+      
+      if (localTerrorists > 0) {
+         //set the bomb count to the threatCells array
+         threatCells[cell] = malloc(sizeof(char)*2);
+         snprintf(threatCells[cell], sizeof(char)*2, "%d", localTerrorists);
+         text_layer_set_text(boardDisplay[cell], threatCells[cell]);
+      } else {
+         text_layer_set_text(boardDisplay[cell], VISUAL_CLEAR);
+         for (uint8_t i = 0; i < neighbourCellsCount; i++) {
+            //only do this if the cell has not already been cleared
+            if ((cells[neighbourCells[i]] & CLEARED_MASK) != CLEARED_MASK) {
+               cells[neighbourCells[i]] |= CLEARED_MASK;
+               selectedRedrawBoardDisplay(neighbourCells[i]);
+            }
+         }
+      }
+      
+      free(neighbourCells);
+      neighbourCells = NULL;
+      
+   } else {
+      if ((cells[cell] & FLAG_MASK) == FLAG_MASK) {
+         text_layer_set_text(boardDisplay[cell], VISUAL_FLAG);
+      } else {
+         text_layer_set_text(boardDisplay[cell], VISUAL_CLEAR);
       }
    }
 }
 
-void moveRedrawBoardDisplay(uint8_t oldSelectedCell)
-{
-   if (oldSelectedCell != selectedCell)
-   {
+void toggleCellFlagClick() {
+   if (((cells[selectedCell] & CLEARED_MASK) != CLEARED_MASK)) {
+      cells[selectedCell] = cells[selectedCell] ^ FLAG_MASK;
+      selectedRedrawBoardDisplay(selectedCell);
+   }
+}
+void moveSelectedCellClick(uint8_t oldSelectedCell) {
+   if (oldSelectedCell != selectedCell) {
       text_layer_set_text_color(boardDisplay[oldSelectedCell], GColorBlack);
       text_layer_set_background_color(boardDisplay[oldSelectedCell], GColorWhite);
       
@@ -312,57 +273,48 @@ void moveRedrawBoardDisplay(uint8_t oldSelectedCell)
 }
 
 void handler_single_click_up(ClickRecognizerRef recognizer, void *context) {
-   if (gameRunning)
-   {
+   if (gameRunning) {
       uint8_t oldSelectedCell = selectedCell;
-      if ((selectedCell % ROWS_COUNT) == (ROWS_COUNT-1))
-      {
+      if ((selectedCell % ROWS_COUNT) == (ROWS_COUNT-1)) {
          selectedCell -= (ROWS_COUNT-1);
-      }
-      else
-      {
+      } else {
          selectedCell++;
       }
-      moveRedrawBoardDisplay(oldSelectedCell);   
+      moveSelectedCellClick(oldSelectedCell);   
    }
 }
 void handler_long_click_up(ClickRecognizerRef recognizer, void *context) {
+   gameRunning = false;
+   initBoard(NULL, NULL);
 }
 void handler_long_click_release_up(ClickRecognizerRef recognizer, void *context) {
-   gameRunning = true;
-   initBoard();
 }
 void handler_single_click_down(ClickRecognizerRef recognizer, void *context) {
-   if (gameRunning)
-   {
+   if (gameRunning) {
       uint8_t oldSelectedCell = selectedCell;
-      if ((selectedCell / ROWS_COUNT) == (ROWS_COUNT-1))
-      {
+      if ((selectedCell / ROWS_COUNT) == (ROWS_COUNT-1)) {
          selectedCell -= (ROWS_COUNT*(ROWS_COUNT-1));
-      }
-      else
-      {
+      } else {
          selectedCell += ROWS_COUNT;
       }
-      moveRedrawBoardDisplay(oldSelectedCell);
+      moveSelectedCellClick(oldSelectedCell);
    }
 }
 void handler_single_click_select(ClickRecognizerRef recognizer, void *context) {
-   if (gameRunning)
-   {
-      cells[selectedCell] = cells[selectedCell] | CLEARED_MASK;
-      selectedRedrawBoardDisplay(selectedCell);
-      processFailureCondition();
+   if (gameRunning) {
+      if ((((cells[selectedCell] & FLAG_MASK) != FLAG_MASK)) && (((cells[selectedCell] & CLEARED_MASK) != CLEARED_MASK))) {
+         cells[selectedCell] |= CLEARED_MASK;
+         selectedRedrawBoardDisplay(selectedCell);
+         processFailureCondition();
+      }
    }
 }
 void handler_long_click_select(ClickRecognizerRef recognizer, void *context) {
+   if (gameRunning) {
+      toggleCellFlagClick();
+   }
 }
 void handler_long_click_release_select(ClickRecognizerRef recognizer, void *context) {
-   if (gameRunning)
-   {
-      cells[selectedCell] ^= FLAG_MASK;
-      selectedRedrawBoardDisplay(selectedCell);
-   }
 }
 void config_provider(Window *window) {
    window_single_click_subscribe(BUTTON_ID_UP, handler_single_click_up);
@@ -372,27 +324,44 @@ void config_provider(Window *window) {
    window_long_click_subscribe(BUTTON_ID_SELECT, 500, handler_long_click_select, handler_long_click_release_select);
 }
 
+uint8_t* getPersistedCells() {
+   return NULL;
+}
+char** getPersistedThreatCells() {
+   return NULL;
+}
+
 void handle_init(void) {
    my_window = window_create();
    
-   initBoard();
+   uint8_t* pCells = getPersistedCells();
+   char** pThreadCells = getPersistedThreatCells();
+   initBoard(pCells, pThreadCells);
    
    window_set_click_config_provider(my_window, (ClickConfigProvider) config_provider);
-   
    window_stack_push(my_window, true);
 }
-
 void handle_deinit(void) {
-  for (uint8_t i = 0; i < CELLS_COUNT; i++)
+   for (uint8_t i = 0; i < CELLS_COUNT; i++)
    {
-    text_layer_destroy(boardDisplay[i]);
-  }
-  
-  window_destroy(my_window);
+      if (boardDisplay[i] != NULL) text_layer_destroy(boardDisplay[i]);
+   }
+   
+   if (boardDisplay != NULL) free(boardDisplay);
+   
+   if (cells != NULL) free(cells);
+   
+   if (threatCells != NULL) {
+      for (uint8_t i = 0; i < CELLS_COUNT; i++) {
+         if (threatCells[i] != NULL) free(threatCells[i]);
+      }
+      free(threatCells);
+   }
+   
+   window_destroy(my_window);
 }
-
 int main(void) {
-  handle_init();
-  app_event_loop();
-  handle_deinit();
+   handle_init();
+   app_event_loop();
+   handle_deinit();
 }
