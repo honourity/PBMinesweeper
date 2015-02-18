@@ -326,7 +326,7 @@ void handler_long_click_release_select(ClickRecognizerRef recognizer, void *cont
 }
 void config_provider(Window *window) {
    window_single_click_subscribe(BUTTON_ID_UP, handler_single_click_up);
-   window_long_click_subscribe(BUTTON_ID_UP, 500, handler_long_click_up, handler_long_click_release_up);
+   window_long_click_subscribe(BUTTON_ID_UP, 1000, handler_long_click_up, handler_long_click_release_up);
    window_single_click_subscribe(BUTTON_ID_DOWN, handler_single_click_down);
    window_single_click_subscribe(BUTTON_ID_SELECT, handler_single_click_select);
    window_long_click_subscribe(BUTTON_ID_SELECT, 500, handler_long_click_select, handler_long_click_release_select);
