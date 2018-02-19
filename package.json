@@ -1,0 +1,34 @@
+{
+    "author": "Honourity",
+    "dependencies": {},
+    "keywords": [],
+    "name": "minesweeper",
+    "pebble": {
+        "displayName": "Minesweeper",
+        "enableMultiJS": true,
+        "messageKeys": [],
+        "projectType": "native",
+        "resources": {
+            "media": [
+                {
+                    "file": "images/minesweeper_icon.png",
+                    "menuIcon": true,
+                    "name": "APP_LOGO",
+                    "type": "png"
+                }
+            ]
+        },
+        "sdkVersion": "3",
+        "targetPlatforms": [
+            "aplite",
+            "basalt",
+            "diorite",
+            "emery"
+        ],
+        "uuid": "5bc1e7f5-ae28-4d61-8ef4-1beca6361e8b",
+        "watchapp": {
+            "watchface": false
+        }
+    },
+    "version": "1.2.0"
+}
