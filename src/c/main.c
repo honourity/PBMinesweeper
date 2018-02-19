@@ -280,24 +280,18 @@ void moveSelectedCellClick(uint8_t oldSelectedCell) {
    }
 }
 
-void handler_single_click_up(ClickRecognizerRef recognizer, void *context) {
+void handler_click_move_up(ClickRecognizerRef recognizer, void *context) {
    if (gameRunning) {
       uint8_t oldSelectedCell = selectedCell;
-      if ((selectedCell % ROWS_COUNT) == (ROWS_COUNT-1)) {
-         selectedCell -= (ROWS_COUNT-1);
+      if ((selectedCell / ROWS_COUNT) == 0) {
+         selectedCell += (ROWS_COUNT*(ROWS_COUNT-1));
       } else {
-         selectedCell++;
+         selectedCell -= ROWS_COUNT;
       }
-      moveSelectedCellClick(oldSelectedCell);   
+      moveSelectedCellClick(oldSelectedCell);
    }
 }
-void handler_long_click_up(ClickRecognizerRef recognizer, void *context) {
-   gameRunning = false;
-   initBoard(NULL, NULL);
-}
-void handler_long_click_release_up(ClickRecognizerRef recognizer, void *context) {
-}
-void handler_single_click_down(ClickRecognizerRef recognizer, void *context) {
+void handler_click_move_down(ClickRecognizerRef recognizer, void *context) {
    if (gameRunning) {
       uint8_t oldSelectedCell = selectedCell;
       if ((selectedCell / ROWS_COUNT) == (ROWS_COUNT-1)) {
@@ -308,7 +302,30 @@ void handler_single_click_down(ClickRecognizerRef recognizer, void *context) {
       moveSelectedCellClick(oldSelectedCell);
    }
 }
-void handler_single_click_select(ClickRecognizerRef recognizer, void *context) {
+void handler_click_move_left(ClickRecognizerRef recognizer, void *context) {
+   if (gameRunning) {
+      uint8_t oldSelectedCell = selectedCell;
+      if ((selectedCell % ROWS_COUNT) == 0) {
+         selectedCell += (ROWS_COUNT-1);
+      } else {
+         selectedCell--;
+      }
+      moveSelectedCellClick(oldSelectedCell);   
+   }
+}
+void handler_click_move_right(ClickRecognizerRef recognizer, void *context) {
+   if (gameRunning) {
+      uint8_t oldSelectedCell = selectedCell;
+      if ((selectedCell % ROWS_COUNT) == (ROWS_COUNT-1)) {
+         selectedCell -= (ROWS_COUNT-1);
+      } else {
+         selectedCell++;
+      }
+      moveSelectedCellClick(oldSelectedCell);   
+   }
+}
+
+void handler_click_cell_check(ClickRecognizerRef recognizer, void *context) {
    if (gameRunning) {
       if ((((cells[selectedCell] & FLAG_MASK) != FLAG_MASK)) && (((cells[selectedCell] & CLEARED_MASK) != CLEARED_MASK))) {
          cells[selectedCell] |= CLEARED_MASK;
@@ -317,19 +334,25 @@ void handler_single_click_select(ClickRecognizerRef recognizer, void *context) {
       }
    }
 }
-void handler_long_click_select(ClickRecognizerRef recognizer, void *context) {
+void handler_click_cell_flag(ClickRecognizerRef recognizer, void *context) {
    if (gameRunning) {
       toggleCellFlagClick();
    }
 }
-void handler_long_click_release_select(ClickRecognizerRef recognizer, void *context) {
+void handler_click_reset(ClickRecognizerRef recognizer, void *context) {
+   gameRunning = false;
+   initBoard(NULL, NULL);
 }
+
 void config_provider(Window *window) {
-   window_single_click_subscribe(BUTTON_ID_UP, handler_single_click_up);
-   window_long_click_subscribe(BUTTON_ID_UP, 1000, handler_long_click_up, handler_long_click_release_up);
-   window_single_click_subscribe(BUTTON_ID_DOWN, handler_single_click_down);
-   window_single_click_subscribe(BUTTON_ID_SELECT, handler_single_click_select);
-   window_long_click_subscribe(BUTTON_ID_SELECT, 500, handler_long_click_select, handler_long_click_release_select);
+   window_single_click_subscribe(BUTTON_ID_UP, handler_click_move_up);
+   window_single_click_subscribe(BUTTON_ID_DOWN, handler_click_move_down);
+   window_single_click_subscribe(BUTTON_ID_BACK, handler_click_move_left);
+   window_single_click_subscribe(BUTTON_ID_SELECT, handler_click_move_right);
+   
+   window_long_click_subscribe(BUTTON_ID_SELECT, 500, handler_click_cell_check, NULL);
+   window_long_click_subscribe(BUTTON_ID_DOWN, 500, handler_click_cell_flag, NULL);
+   window_long_click_subscribe(BUTTON_ID_UP, 500, handler_click_reset, NULL);
 }
 
 uint8_t* getPersistedCells() {
